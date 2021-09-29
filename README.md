@@ -3,6 +3,7 @@ SLface is a multiple account monitor and bot runner with scheduling.
 
 <a name="news"></a>
 ## News
+Ya obosralsy
 
 ## Table of content
 1. [ Installation. ](#installation)
