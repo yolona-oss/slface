@@ -1,5 +1,5 @@
 # SLface
-SLface is a program to simply manage a lot of splinterlands accounts and run on it sl-bot.
+SLface is a multiple account monitor and bot runner with scheduling.
 
 <a name="news"></a>
 ## News
@@ -7,7 +7,6 @@ SLface is a program to simply manage a lot of splinterlands accounts and run on 
 ## Table of content
 1. [ Installation. ](#installation)
 	+ [ Dependenses ](#dependenses)
-2. [ In dev ](#dev)
 
 <a name="installation"></a>
 ## Installation
@@ -24,7 +23,3 @@ make
 + SQLite
 + RapidJSON (downloading by cmake)
 + cpr (downloading by cmake)
-
-<a name="dev"></a>
-
-## TODO
