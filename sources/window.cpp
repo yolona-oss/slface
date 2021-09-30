@@ -91,18 +91,11 @@ twMenus::doToggle(int col, bool visible)
 
 //*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 
-void runDB(Stor *to) {
-	DataBase db(DEFAULT_DATABASE_PATH);
-	if (db.ready()) { //add check count
-		db.getAll(*to);
-	}
-}
-
 window::window(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::window),
 		 __iStor(),
-		 sl_db(DEFAULT_DATABASE_PATH)
+		 sl_db()
 {
     ui->setupUi(this);
     ui->actionUse_dock->setChecked(true);
@@ -118,10 +111,8 @@ window::window(QWidget *parent)
 
 	ui->statusbar->showMessage("Loading accounts data...", 10000);
 
-	/* std::thread thr(runDB, &__iStor); */
-	/* thr.detach(); */
-	if (sl_db.ready()) { //add check count
-		sl_db.getAll(__iStor);
+	if (sl_db.connect()) { //add check count to display progress
+		sl_db.readEvery(&__iStor);
 	}
 }
 
@@ -285,11 +276,7 @@ window::on_pushButton_saveAccInfo_clicked()
 		setEMail(email)->
 		setPassword(pass);
 
-	if (sl_db.ready()) {
-		sl_db.update(item, id);
-	} else {
-		std::cerr << "Cant update Item!" << std::endl;
-	}
+	sl_db.update(item);
 
     ui->pushButton_saveAccInfo->setDisabled(true);
 }
@@ -373,7 +360,7 @@ window::on_actionRead_data_from_file_triggered()
 				IADialog->getRAF());
 
         ui->statusbar->showMessage("Saving accounts...", 10000);
-        sl_db.insertAll(__iStor);
+        sl_db.insertEvery(&__iStor);
     }
 
 	delete IADialog;
@@ -392,14 +379,13 @@ void window::on_actionEdit_UIDs_aligment_triggered() //TODO add check for an upd
 		__iStor.changeUIDsAlign(moveTo);
 
 		if (CUADialog->doSave()) {
-			if (sl_db.ready()) {
 				ui->statusbar->showMessage("Saving reforming table...", 10000);
 				sl_db.erase();
-				sl_db.insertAll(__iStor);
-			} else {
-				//mb do QMessage?
-				ui->statusbar->showMessage("Cant save reforming table...", 10000);
-			}
+				sl_db.insertEvery(&__iStor);
+			/* } else { */
+			/* 	//mb do QMessage? */
+			/* 	ui->statusbar->showMessage("Cant save reforming table...", 10000); */
+			/* } */
 		}
 	}
 

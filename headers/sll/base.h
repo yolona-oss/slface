@@ -283,8 +283,8 @@ namespace SL
 			//Account data
 			static const authentication::Type PREFERED_AUTH_TYPE = authentication::USERNAME;
 
-			Item* setAuthType(authentication::Type type) { __auth_type = type; emit _itemChanged(this); return this; };
-			authentication::Type authType(void) const    { return __auth_type; };
+			Item* setAuthType(int type) { __auth_type = static_cast<authentication::Type>(type); return this; }
+			int   authType(void) const  { return __auth_type; }
 
 			Item *      setUsername(const std::string& uname) { __accountDetails.username = uname; /*emit _itemChanged(this);*/ return this; };
 			std::string username(void) const                  { return __accountDetails.username; };

@@ -106,6 +106,9 @@
     </property>
     <addaction name="separator"/>
     <addaction name="separator"/>
+    <addaction name="actionUse_exist_accounts_data_base"/>
+    <addaction name="actionCopy_accounts_info_to_file"/>
+    <addaction name="actionRead_data_from_file"/>
     <addaction name="actionExit"/>
    </widget>
    <widget class="QMenu" name="menuview">
@@ -143,16 +146,6 @@
     <addaction name="actionRun_selected"/>
     <addaction name="menuRun_all"/>
    </widget>
-   <widget class="QMenu" name="menuInitialization">
-    <property name="cursor">
-     <cursorShape>PointingHandCursor</cursorShape>
-    </property>
-    <property name="title">
-     <string>Initialization</string>
-    </property>
-    <addaction name="actionRead_data_from_file"/>
-    <addaction name="actionUse_exist_accounts_data_base"/>
-   </widget>
    <widget class="QMenu" name="menuFormat">
     <property name="title">
      <string>Format</string>
@@ -164,7 +157,6 @@
    <addaction name="menuFormat"/>
    <addaction name="menuOptions"/>
    <addaction name="menuBot"/>
-   <addaction name="menuInitialization"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
@@ -510,12 +502,12 @@
   </action>
   <action name="actionRead_data_from_file">
    <property name="text">
-    <string>Read accounts data from file</string>
+    <string>Read accounts from file</string>
    </property>
   </action>
   <action name="actionUse_exist_accounts_data_base">
    <property name="text">
-    <string>Use exist accounts data base</string>
+    <string>Open accounts data base</string>
    </property>
   </action>
   <action name="actionPereferences">
@@ -557,6 +549,11 @@
   <action name="actionEdit_UIDs_aligment">
    <property name="text">
     <string>Edit UIDs aligment</string>
+   </property>
+  </action>
+  <action name="actionCopy_accounts_info_to_file">
+   <property name="text">
+    <string>Copy accounts info to file</string>
    </property>
   </action>
  </widget>
