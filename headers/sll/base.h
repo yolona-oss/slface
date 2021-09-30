@@ -6,10 +6,18 @@
 #include <QObject>
 #include <QThread>
 #include <QTimer>
+
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QUrlQuery>
+#include <QUrl>
+
 #include <rapidjson/document.h>
-#include <cpr/cpr.h>
+
 #include <string>
 #include <vector>
+#include <array>
 #include <chrono>
 
 namespace SL
@@ -113,6 +121,9 @@ namespace SL
 	/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
 
 	//Object for fetching data from splinterlands API
+	//pb - player Balances
+	//pd - player Details
+	//pq - player Quests
 	class API_Interactor : public QObject
 	{
 		Q_OBJECT
@@ -123,19 +134,29 @@ namespace SL
 			std::chrono::steady_clock::time_point __lastGetTime {
 				std::chrono::steady_clock::now() };
 
-			cpr::Response    __r_playerDetails;
-			cpr::Response    __r_playerBalance;
-			cpr::Response    __r_playerQuests;
+			QNetworkAccessManager *nm_pd;
+			QNetworkAccessManager *nm_pq;
+			QNetworkAccessManager *nm_pb;
+
+			QNetworkReply *nm_pdReply;
+			QNetworkReply *nm_pqReply;
+			QNetworkReply *nm_pbReply;
 
 			bool __firstTime {true};
+			bool __pd = false,
+				 __pq = false,
+				 __pb = false;
 
-			void pushRequest(void);
-			bool badResnose(cpr::Response r);
-			bool responsesOK(void);
-			bool updatePlayerDetails(void);
-			bool updatePlayerBalances(void);
-			bool updatePlayerQuests(void);
+			bool __pd_completed = false;
+			bool __pq_completed = false;
+			bool __pb_completed = false;
+
+		private:
+			bool replyError(QNetworkReply *);
+			void pushRequests(void);
 			bool updateValues(void);
+
+			void checkToFinalize(void);
 
 			bool isTimeToRequest(void);
 			bool canPerformRequest(void);
@@ -152,6 +173,11 @@ namespace SL
 			void finishedForItem(Item& item);
 			void updateReady(void);
 			void _needUpdate(void);
+
+		private slots:
+			void on_playerDetailsResult(QNetworkReply *r);
+			void on_playerQuestsResult(QNetworkReply *r);
+			void on_playerBalancesResult(QNetworkReply *r);
 
 		public slots:
 			void on_needUpdate(void); //fetch data

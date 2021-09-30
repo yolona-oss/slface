@@ -1,3 +1,5 @@
+#include <cctype>
+#include <qnamespace.h>
 #include <sll/base.h>
 
 #include <iostream>
@@ -8,12 +10,27 @@ API_Interactor::API_Interactor(Item& item, QObject *p) :
 	QObject(p),
 		__item(item)
 {
+	nm_pd = new (std::nothrow) QNetworkAccessManager(this);
+	nm_pq = new (std::nothrow) QNetworkAccessManager(this);
+	nm_pb= new (std::nothrow) QNetworkAccessManager(this);
+
+	connect(nm_pq, &QNetworkAccessManager::finished,
+			this, &API_Interactor::on_playerQuestsResult, Qt::QueuedConnection);
+	connect(nm_pd, &QNetworkAccessManager::finished,
+			this, &API_Interactor::on_playerDetailsResult, Qt::QueuedConnection);
+	connect(nm_pb, &QNetworkAccessManager::finished,
+			this, &API_Interactor::on_playerBalancesResult, Qt::QueuedConnection);
+
 	connect(this, &API_Interactor::_needUpdate,
 			this, &API_Interactor::on_needUpdate);
 }
 
 API_Interactor::~API_Interactor()
 {
+	//TODO mb delete replies?
+	delete nm_pd;
+	delete nm_pq;
+	delete nm_pb;
 }
 
 bool
@@ -27,79 +44,113 @@ API_Interactor::isInteractionPossible()
 }
 
 void
-API_Interactor::pushRequest(void)
+API_Interactor::checkToFinalize(void)
+{
+	if (__pd_completed && __pb_completed && __pq_completed) {
+		__pd_completed = false;
+		__pb_completed = false;
+		__pq_completed = false;
+		std::cout << "exiting api interactor" << std::endl;
+		finalize(__pd || __pq || __pb); //process data and save directly into item
+	}
+}
+
+void
+API_Interactor::pushRequests(void) //TODO add setTransferTimeout
 {
 	//Fetch -- RATING --
-	__r_playerDetails = cpr::Get(cpr::Url{URL::players::details},
-								 cpr::Parameters{ {"name", __item.username()} } );
+
+	QUrl url(QString::fromStdString(URL::players::details));
+	QNetworkRequest pd_request;
+	QUrlQuery pd_query;
+	pd_query.addQueryItem("name", QString::fromStdString(__item.username()));
+	url.setQuery(pd_query);
+	pd_request.setUrl(url);
+	/* std::cout << url. << std::endl; */
+	nm_pdReply = nm_pd->get(pd_request);
 
 	//Fetch -- DEC --
-	__r_playerBalance = cpr::Get(cpr::Url{URL::players::balances},
-								 cpr::Parameters{{"username", __item.username()}} );
+
+	url = QString::fromStdString(URL::players::balances);
+	QNetworkRequest pb_request;
+	QUrlQuery pb_query;
+	pd_query.addQueryItem("usernamename", QString::fromStdString(__item.username()));
+	url.setQuery(pb_query);
+	pb_request.setUrl(url);
+	nm_pbReply = nm_pb ->get(pb_request);
 
 	//Fetch -- QUEST --
-	__r_playerQuests = cpr::Get(cpr::Url{URL::players::quests},
-								 cpr::Parameters{{"username", __item.username()}} );
 
-	//TODO add power and quest details
+	QUrlQuery pq_query;
+	pd_query.addQueryItem("usernamename", QString::fromStdString(__item.username()));
+	url = QString::fromStdString(URL::players::quests);
+	url.setQuery(pq_query);
+	QNetworkRequest pq_request;
+	pq_request.setUrl(url);
+	nm_pqReply = nm_pq->get(pq_request);
 }
 
-bool
-API_Interactor::badResnose(cpr::Response r)
+void
+API_Interactor::on_playerDetailsResult(QNetworkReply *r)
 {
-	if (!r.status_code) {
-		std::cerr << "Errors for Request url: " << r.url << std::endl;
-		std::cerr << r.error.message << std::endl;
-		return true;
-	} else if (r.status_code >= 400) {
-		std::cerr << "Errors for Request url: " << r.url << std::endl;
-		std::cerr << "Error [" << r.status_code << "] making request" << std::endl;
-		return true;
+	__pd_completed = true;
+	if (replyError(r)) {
+		__pd = false;
+		checkToFinalize();
+		return;
 	}
-
-	return false;
-}
-
-bool
-API_Interactor::responsesOK(void) //TODO
-{
-	//Check responce status
-	return !badResnose(__r_playerQuests) &&
-		!badResnose(__r_playerBalance) &&
-		!badResnose(__r_playerDetails);
-}
-
-bool
-API_Interactor::updatePlayerDetails(void)
-{
-	if (badResnose(__r_playerDetails)) {
-		return false;
-	}
-
 	rapidjson::Document doc;
 
 	//Rating
-	doc.Parse(__r_playerDetails.text.c_str());
+	doc.Parse(r->readAll().toStdString().c_str());
 	assert(doc.IsObject());
 	__item.setRating(doc["rating"].GetInt());
 
 	//League
 	__item.setLeague(doc["league"].GetInt());
 
-	return true;
+	__pd = true;
+	checkToFinalize();
 }
 
-bool
-API_Interactor::updatePlayerBalances(void)
+void
+API_Interactor::on_playerQuestsResult(QNetworkReply *r)
 {
-	if (badResnose(__r_playerBalance)) {
-		return false;
+	__pq_completed = true;
+	if (replyError(r)) {
+		__pq = false;
+		checkToFinalize();
+		return;
 	}
 
 	rapidjson::Document doc;
 
+	//Quest
+	doc.Parse(r->readAll().toStdString().c_str());
+	assert(doc.IsArray());
+
+	for (auto& itr : doc.GetArray()) {
+		__item.setQuestProgress(itr["completed_items"].GetInt());
+		break;
+	}
+
+	__pq = true;
+	checkToFinalize();
+}
+
+void
+API_Interactor::on_playerBalancesResult(QNetworkReply *r)
+{
+	__pb_completed = true;
+	if (replyError(r)) {
+		__pb = false;
+		checkToFinalize();
+		return;
+	}
+	rapidjson::Document doc;
+
 	//DEC count
-	doc.Parse(__r_playerBalance.text.c_str());
+	doc.Parse(r->readAll().toStdString().c_str());
 	assert(doc.IsArray());
 
 	for (auto& itr : doc.GetArray()) {
@@ -109,39 +160,83 @@ API_Interactor::updatePlayerBalances(void)
 		}
 	}
 
-	return true;
+	__pb = true;
+	checkToFinalize();
 }
 
 bool
-API_Interactor::updatePlayerQuests(void)
+API_Interactor::replyError(QNetworkReply *r)
 {
-	if (badResnose(__r_playerQuests)) {
+	if (r->error()) {
+		std::cerr << r->errorString().toStdString() << std::endl;
+		return true;
+	} else {
 		return false;
 	}
 
-	rapidjson::Document doc;
-
-	//Quest
-	doc.Parse(__r_playerQuests.text.c_str());
-	assert(doc.IsArray());
-
-	for (auto& itr : doc.GetArray()) {
-		__item.setQuestProgress(itr["completed_items"].GetInt());
-		break;
-	}
-
 	return true;
 }
 
-bool
-API_Interactor::updateValues(void)
-{
-	bool pd = updatePlayerDetails();
-	bool pq = updatePlayerQuests();
-	bool pb = updatePlayerBalances();
+/* bool */
+/* API_Interactor::updatePlayerDetails(void) */
+/* { */
+/* 	if (badResnose(__r_playerDetails)) { */
+/* 		return false; */
+/* 	} */
 
-	return pd || pq || pb;
-}
+/* 	rapidjson::Document doc; */
+
+/* 	//Rating */
+/* 	doc.Parse(__r_playerDetails.text.c_str()); */
+/* 	assert(doc.IsObject()); */
+/* 	__item.setRating(doc["rating"].GetInt()); */
+
+/* 	//League */
+/* 	__item.setLeague(doc["league"].GetInt()); */
+
+/* 	return tRue; */
+/* } */
+
+/* bool */
+/* API_Interactor::updatePlayerBalances(void) */
+/* { */
+/* 	if (badResnose(__r_playerBalance)) { */
+/* 		return false; */
+/* 	} */
+
+/* 	rapidjson::Document doc; */
+
+/* 	//Rating */
+/* 	doc.Parse(__r_playerDetails.text.c_str()); */
+/* 	assert(doc.IsObject()); */
+/* 	__item.setRating(doc["rating"].GetInt()); */
+
+/* 	//League */
+/* 	__item.setLeague(doc["league"].GetInt()); */
+
+/* 	return true; */
+/* } */
+
+/* bool */
+/* API_Interactor::updatePlayerQuests(void) */
+/* { */
+/* 	if (badResnose(__r_playerQuests)) { */
+/* 		return false; */
+/* 	} */
+
+/* 	rapidjson::Document doc; */
+
+/* 	//Quest */
+/* 	doc.Parse(__r_playerQuests.text.c_str()); */
+/* 	assert(doc.IsArray()); */
+
+/* 	for (auto& itr : doc.GetArray()) { */
+/* 		__item.setQuestProgress(itr["completed_items"].GetInt()); */
+/* 		break; */
+/* 	} */
+
+/* 	return true; */
+/* } */
 
 bool
 API_Interactor::canPerformRequest(void)
@@ -170,6 +265,9 @@ API_Interactor::isTimeToRequest()
 void
 API_Interactor::finalize(bool success)
 {
+	__pd = false;
+	__pq = false;
+	__pb = false;
 	emit finishedForItem(this->__item);
 	emit finished(success);
 }
@@ -184,7 +282,6 @@ API_Interactor::on_needUpdate() //TODO make forse request prop
 		return;
 	}
 
-	pushRequest(); //interact with api
-	finalize(updateValues()); //process data and save directly into item
+	pushRequests(); //interact with api
 }
 

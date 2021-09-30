@@ -81,6 +81,11 @@
         <string>DEC</string>
        </property>
       </column>
+      <column>
+       <property name="text">
+        <string>Quests revards</string>
+       </property>
+      </column>
      </widget>
     </item>
    </layout>

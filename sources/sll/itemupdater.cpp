@@ -123,7 +123,7 @@ ItemUpdater::doIteration(void)
 	int i = 0;
 	for (auto item : __stor) {
 		if (item->api()->isInteractionPossible()) {
-			if (i < 90) {
+			if (i < 10) {
 				emit item->_updateItem();
 				i++;
 			} else {
