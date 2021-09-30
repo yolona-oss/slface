@@ -35,8 +35,8 @@ UpdaterQueue::createQueue(void)
 {
 	ItemState *is;
 	for (auto item : __stor) {
-        //connect(item->api(), &API_Interactor::finishedForItem,
-        //		this, &UpdaterQueue::on_interactorFinished);
+        connect(item->api(), &API_Interactor::finishedForItem,
+        		this, &UpdaterQueue::on_interactorFinished);
 
 		is = new ItemState(item);
 		queue.push_back(is);
@@ -132,9 +132,10 @@ UpdaterQueue::getStandby(int count)
 		if (isTimeToUpdate(istate)) {
 			istate->state = ItemState::Standby;
 		}
-		if (count > 0 &&
+		if (count > 0 && !istate->item->username().empty() &&
 				istate->state == ItemState::Standby)
 		{
+			istate->state = ItemState::Wait;
 			sharedStandbyQueue->push_back(istate->item);
 			count--;
 		}

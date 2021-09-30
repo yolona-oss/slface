@@ -250,7 +250,7 @@ API_Interactor::finalize(bool success, bool free)
 		delete nm_pq;
 	}
 
-	emit finishedForItem(this->__item);
+	emit finishedForItem(&this->__item);
 	emit finished(success);
 }
 

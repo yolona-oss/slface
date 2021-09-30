@@ -165,7 +165,7 @@ namespace SL
 
 		signals:
 			void finished(bool success);
-			void finishedForItem(Item& item);
+			void finishedForItem(Item *item);
 			void updateReady(void);
 			void _needUpdate(void);
 
@@ -242,7 +242,7 @@ namespace SL
 			/* void clear(void); */
 
 		private slots:
-			void on_interactorFinished(Item *item);
+			void on_interactorFinished(Item*);
 			void on_itemAdded(Item*);
 			void on_itemRemoved(long id);
 			void on_itemChanged(Item*);
