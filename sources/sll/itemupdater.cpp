@@ -56,11 +56,16 @@ UpdaterQueue::on_interactorFinished(Item& item)
 	std::reverse(queue.begin(), queue.end());
 	/* std::rotate(queue.begin(), queue.begin() + 1, queue.end()); */
 	std::rotate(queue.begin(), queue.end() - findItemPos(item), queue.end());
+	std::reverse(queue.begin(), queue.end());
 }
 
 void
-UpdaterQueue::on_itemAdded(Item*)
+UpdaterQueue::on_itemAdded(Item *item)
 {
+	std::reverse(queue.begin(), queue.end());
+	ItemState *is = new ItemState(*item);
+	queue.push_back(is);
+	std::reverse(queue.begin(), queue.end());
 }
 
 void

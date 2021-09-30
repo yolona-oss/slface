@@ -169,7 +169,8 @@ window::getItemYbyIDColumn(QTreeWidget *tw, QString id)
 	if (list.empty()) {
 		return nullptr;
 	} else {
-		return list.begin().i->t();
+        return list[0];
+			//i->t();
 	}
 }
 
