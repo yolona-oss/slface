@@ -10,17 +10,6 @@ API_Interactor::API_Interactor(Item& item, QObject *p) :
 	QObject(p),
 		__item(item)
 {
-	nm_pd = new (std::nothrow) QNetworkAccessManager(this);
-	nm_pq = new (std::nothrow) QNetworkAccessManager(this);
-	nm_pb= new (std::nothrow) QNetworkAccessManager(this);
-
-	connect(nm_pq, &QNetworkAccessManager::finished,
-			this, &API_Interactor::on_playerQuestsResult, Qt::QueuedConnection);
-	connect(nm_pd, &QNetworkAccessManager::finished,
-			this, &API_Interactor::on_playerDetailsResult, Qt::QueuedConnection);
-	connect(nm_pb, &QNetworkAccessManager::finished,
-			this, &API_Interactor::on_playerBalancesResult, Qt::QueuedConnection);
-
 	connect(this, &API_Interactor::_needUpdate,
 			this, &API_Interactor::on_needUpdate);
 }
@@ -263,11 +252,18 @@ API_Interactor::isTimeToRequest()
 }
 
 void
-API_Interactor::finalize(bool success)
+API_Interactor::finalize(bool success, bool free)
 {
 	__pd = false;
 	__pq = false;
 	__pb = false;
+
+	if (free) {
+		delete nm_pd;
+		delete nm_pb;
+		delete nm_pq;
+	}
+
 	emit finishedForItem(this->__item);
 	emit finished(success);
 }
@@ -278,9 +274,21 @@ void
 API_Interactor::on_needUpdate() //TODO make forse request prop
 {
 	if (!canPerformRequest()) {
-		finalize(false);
+		finalize(false, false);
 		return;
 	}
+
+	nm_pd = new (std::nothrow) QNetworkAccessManager(this);
+	nm_pq = new (std::nothrow) QNetworkAccessManager(this);
+	nm_pb = new (std::nothrow) QNetworkAccessManager(this);
+
+	connect(nm_pq, &QNetworkAccessManager::finished,
+			this, &API_Interactor::on_playerQuestsResult, Qt::QueuedConnection);
+	connect(nm_pd, &QNetworkAccessManager::finished,
+			this, &API_Interactor::on_playerDetailsResult, Qt::QueuedConnection);
+	connect(nm_pb, &QNetworkAccessManager::finished,
+			this, &API_Interactor::on_playerBalancesResult, Qt::QueuedConnection);
+
 
 	pushRequests(); //interact with api
 }

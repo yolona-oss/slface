@@ -160,7 +160,7 @@ namespace SL
 
 			bool isTimeToRequest(void);
 			bool canPerformRequest(void);
-			void finalize(bool success);
+			void finalize(bool success, bool free = true);
 
 		public:
 			explicit API_Interactor(Item& item, QObject *p = nullptr);
