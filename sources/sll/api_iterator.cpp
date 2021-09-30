@@ -230,24 +230,10 @@ API_Interactor::replyError(QNetworkReply *r)
 bool
 API_Interactor::canPerformRequest(void)
 {
-	if (__item.username().empty() || !isTimeToRequest()) {
+	if (__item.username().empty()) {
 		return false;
 	} else {
 		return true;
-	}
-}
-
-bool
-API_Interactor::isTimeToRequest()
-{
-	using namespace std::chrono;
-	auto now = steady_clock::now();
-	if (duration_cast<milliseconds>(now - __lastGetTime) >= G_GET_REQ_GAP_TIME || __firstTime) {
-		__firstTime = false;
-		__lastGetTime = steady_clock::now(); //update timer
-		return true;
-	} else {
-		return false;
 	}
 }
 

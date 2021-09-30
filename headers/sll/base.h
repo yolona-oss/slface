@@ -131,9 +131,6 @@ namespace SL
 		private:
 			Item &__item; //link with parent
 
-			std::chrono::steady_clock::time_point __lastGetTime {
-				std::chrono::steady_clock::now() };
-
 			QNetworkAccessManager *nm_pd;
 			QNetworkAccessManager *nm_pq;
 			QNetworkAccessManager *nm_pb;
@@ -142,7 +139,6 @@ namespace SL
 			QNetworkReply *nm_pqReply;
 			QNetworkReply *nm_pbReply;
 
-			bool __firstTime {true};
 			bool __pd = false,
 				 __pq = false,
 				 __pb = false;
@@ -158,7 +154,6 @@ namespace SL
 
 			void checkToFinalize(void);
 
-			bool isTimeToRequest(void);
 			bool canPerformRequest(void);
 			void finalize(bool success, bool free = true);
 
@@ -186,17 +181,38 @@ namespace SL
 	/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
 	//Item update scheduling
 
-	class ItemState {
+	class ItemState : public QObject
+	{
+		Q_OBJECT
+
+		private:
+			bool __itsNew = true;
+			std::chrono::steady_clock::time_point __lastUpdateTime {
+				std::chrono::steady_clock::now() };
+
 		public:
 			enum State {
-				Execute, //api running
-				Waity,   //its not time to execute
+				/* Execute, //api running */
+				Wait,   //its not time to execute
 				Standby, //waiting for self turn in queue
 			};
-			Item& item;
+			Item *item;
 			int state;
-			ItemState(Item& ritem) : item(ritem), state(Standby) {}
-			~ItemState();
+			bool itsNew() { emit _itsNewTrigger(); return __itsNew; }
+			std::chrono::steady_clock::time_point lastUpdateTime()            { return __lastUpdateTime; }
+			void setLastUpdateTime(std::chrono::steady_clock::time_point lut) { __lastUpdateTime = lut; }
+
+			explicit ItemState(Item *pitem) : item(pitem), state(Standby) { 
+				connect(this, &ItemState::_itsNewTrigger, this, &ItemState::on_itsNewtriggered);
+			}
+			virtual ~ItemState() {};
+
+		signals:
+			void _itsNewTrigger();
+
+		private slots:
+			void on_itsNewtriggered() { __itsNew=false; }
+			
 	};
 
 	class UpdaterQueue : public QObject
@@ -206,18 +222,27 @@ namespace SL
 		private:
 			Stor& __stor;
 			std::vector<ItemState*> queue;
+			std::vector<Item*> *sharedStandbyQueue;
 
-			//methods
-			long findItemPos(Item& item);
+		private:
+			void createQueue(void);
+			void clearQueue(void);
+			long findItemPos(Item *item);
+
+			bool isTimeToUpdate(ItemState *iState);
 
 		public:
-			UpdaterQueue(Stor& stor);
-			~UpdaterQueue();
+			explicit UpdaterQueue(Stor& stor);
+			virtual ~UpdaterQueue();
 
 		signals:
 
+		public slots:
+			std::vector<Item*> * getStandby(int count);
+			/* void clear(void); */
+
 		private slots:
-			void on_interactorFinished(Item& item);
+			void on_interactorFinished(Item *item);
 			void on_itemAdded(Item*);
 			void on_itemRemoved(long id);
 			void on_itemChanged(Item*);

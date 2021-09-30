@@ -21,22 +21,40 @@ UpdaterQueue::UpdaterQueue(Stor& stor) :
 	connect(&stor, &Stor::_itemsUIDsAlignReoganized,
 			this, &UpdaterQueue::on_reorganized);
 
-	ItemState *is;
-	for (auto item : stor) {
-		connect(item->api(), &API_Interactor::finishedForItem,
-				this, &UpdaterQueue::on_interactorFinished);
-
-		is = new ItemState(*item);
-		queue.push_back(is);
-	}
+	sharedStandbyQueue = new std::vector<Item*>;
+	createQueue();
 }
 
 UpdaterQueue::~UpdaterQueue()
 {
+	delete sharedStandbyQueue;
+}
+
+void
+UpdaterQueue::createQueue(void)
+{
+	ItemState *is;
+	for (auto item : __stor) {
+        //connect(item->api(), &API_Interactor::finishedForItem,
+        //		this, &UpdaterQueue::on_interactorFinished);
+
+		is = new ItemState(item);
+		queue.push_back(is);
+	}
+}
+
+void
+UpdaterQueue::clearQueue(void)
+{
+	//TODO TEST AFTER. delete or not itemstates????
+	for (auto is : queue) {
+		delete is;
+	}
+	queue.clear();
 }
 
 long
-UpdaterQueue::findItemPos(Item& item)
+UpdaterQueue::findItemPos(Item *item)
 {
 	int i= 0;
 	for (auto is : queue) {
@@ -49,9 +67,10 @@ UpdaterQueue::findItemPos(Item& item)
 	throw "No item here!!!";
 }
 
+//API_interactor finished
 //moving freshly updated item to end of thre queue with status Wait
 void
-UpdaterQueue::on_interactorFinished(Item& item)
+UpdaterQueue::on_interactorFinished(Item *item)
 {
 	std::reverse(queue.begin(), queue.end());
 	/* std::rotate(queue.begin(), queue.begin() + 1, queue.end()); */
@@ -59,18 +78,18 @@ UpdaterQueue::on_interactorFinished(Item& item)
 	std::reverse(queue.begin(), queue.end());
 }
 
+//add item to begin of queue
 void
 UpdaterQueue::on_itemAdded(Item *item)
 {
-	std::reverse(queue.begin(), queue.end());
-	ItemState *is = new ItemState(*item);
-	queue.push_back(is);
-	std::reverse(queue.begin(), queue.end());
+	ItemState *is = new ItemState(item);
+	queue.insert(queue.begin(), is);
 }
 
 void
 UpdaterQueue::on_itemRemoved(long id)
 {
+	/* queue.erace(std::next(queue.next() + */ 
 }
 
 void
@@ -82,6 +101,46 @@ void
 UpdaterQueue::on_reorganized()
 {
 	//reconfig queue
+	clearQueue();
+	createQueue();
+}
+
+bool
+UpdaterQueue::isTimeToUpdate(ItemState *iState)
+{
+	using namespace std::chrono;
+	auto now = steady_clock::now();
+
+	if (duration_cast<milliseconds>(now - iState->lastUpdateTime()) >= G_GET_REQ_GAP_TIME ||
+			iState->itsNew()) {
+		iState->setLastUpdateTime(steady_clock::now()); //update timer
+		return true;
+	} else {
+		return false;
+	}
+}
+
+std::vector<Item*> *
+UpdaterQueue::getStandby(int count)
+{
+	//check item for mustUpdate
+	//make returning ItemStates status to wating
+	
+	sharedStandbyQueue->clear();
+
+	for (auto istate : queue) {
+		if (isTimeToUpdate(istate)) {
+			istate->state = ItemState::Standby;
+		}
+		if (count > 0 &&
+				istate->state == ItemState::Standby)
+		{
+			sharedStandbyQueue->push_back(istate->item);
+			count--;
+		}
+	}
+
+	return sharedStandbyQueue;
 }
 
 ItemUpdater::ItemUpdater(Stor& stor, QObject *p) :
@@ -120,19 +179,25 @@ ItemUpdater::stop(void)
 void
 ItemUpdater::doIteration(void)
 {
-	int i = 0;
-	for (auto item : __stor) {
-		if (item->api()->isInteractionPossible()) {
-			if (i < 10) {
-				emit item->_updateItem();
-				i++;
-			} else {
-				//add to queue
-			}
-		}
-	}
+	/* int i = 0; */
+	/* for (auto item : __stor) { */
+	/* 	if (item->api()->isInteractionPossible()) { */
+	/* 		if (i < 10) { */
+	/* 			emit item->_updateItem(); */
+	/* 			i++; */
+	/* 		} else { */
+	/* 			//add to queue */
+	/* 		} */
+	/* 	} */
+	/* } */
 
-	/* std::cout << "iteration :)" << std::endl; */
+	//1 queue get standby items with count pred
+	//2 start updaters in this items(queue after this precess these item with execute state)
+	//3 go to sleep
+	
+	for (auto item : *__queue->getStandby(__maxUpdaters)) {
+		item->_updateItem();
+	}
 }
 
 void

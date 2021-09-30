@@ -134,6 +134,8 @@ DataBase::sql_read_values(const QSqlQuery& query, Item *item)
 			.toString().toStdString().c_str();
 	if (tmp) item->setKey(tmp);
 
+	tmp = 0;
+
 	//email
 	tmp = (char*)query.value(
 			rec.indexOf(TABLE_EMAIL))
