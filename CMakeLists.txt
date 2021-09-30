@@ -21,6 +21,7 @@ include_directories("headers/")
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 add_subdirectory(sources/sll)
+add_subdirectory(lib/sqlite3)
 
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets LinguistTools REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets LinguistTools REQUIRED)
@@ -72,6 +73,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 	Qt${QT_VERSION_MAJOR}::Widgets
 	Qt${QT_VERSION_MAJOR}::Core
 	sll
+	sqlite3
 	)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
