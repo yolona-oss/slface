@@ -76,11 +76,12 @@ UpdaterQueue::findItemPos(Item *item)
 void
 UpdaterQueue::on_interactorFinished(Item *item)
 {
+	std::cout << "iter finished!!!!!!!!!!!!!!!!" << std::endl;
 	queue.at(findItemPos(item))->state = ItemState::Wait;
-	std::reverse(queue.begin(), queue.end());
-	/* std::rotate(queue.begin(), queue.begin() + 1, queue.end()); */
-	std::rotate(queue.begin(), queue.end() - findItemPos(item), queue.end());
-	std::reverse(queue.begin(), queue.end());
+	/* std::reverse(queue.begin(), queue.end()); */
+	/* /1* std::rotate(queue.begin(), queue.begin() + 1, queue.end()); *1/ */
+	/* std::rotate(queue.begin(), queue.end() - findItemPos(item), queue.end()); */
+	/* std::reverse(queue.begin(), queue.end()); */
 }
 
 //add item to begin of queue
@@ -94,6 +95,7 @@ UpdaterQueue::on_itemAdded(Item *item)
 void
 UpdaterQueue::on_itemRemoved(long id)
 {
+	//TODO
 	/* queue.erace(std::next(queue.next() + */ 
 }
 
@@ -132,6 +134,22 @@ UpdaterQueue::getStandby(int count)
 	//make returning ItemStates status to wating
 	
 	sharedStandbyQueue->clear();
+
+	int executing_c(0);
+
+	for (auto iState : queue) {
+		if (iState->state == ItemState::Execute) {
+			++executing_c;
+		}
+	}
+
+	if (executing_c == count) {
+		return sharedStandbyQueue;
+	}
+
+	std::cout << "exec: " << executing_c << std::endl;
+
+	count -= executing_c;
 
 	for (auto istate : queue) {
 		if (isTimeToUpdate(istate)) {
