@@ -7,13 +7,17 @@
 #include <QThread>
 #include <QTimer>
 
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonValue>
+/* #include <QJson */
+
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QUrlQuery>
 #include <QUrl>
-
-#include <rapidjson/document.h>
 
 #include <string>
 #include <vector>

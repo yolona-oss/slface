@@ -41,7 +41,6 @@ API_Interactor::checkToFinalize(void)
 		__pd_completed = false;
 		__pb_completed = false;
 		__pq_completed = false;
-		std::cout << "exiting api interactor" << std::endl;
 		finalize(__pd || __pq || __pb); //process data and save directly into item
 	}
 }
@@ -57,7 +56,6 @@ API_Interactor::pushRequests(void) //TODO add setTransferTimeout
 	pd_query.addQueryItem("name", QString::fromStdString(__item.username()));
 	url.setQuery(pd_query);
 	pd_request.setUrl(url);
-	/* std::cout << url. << std::endl; */
 	nm_pdReply = nm_pd->get(pd_request);
 
 	//Fetch -- DEC --
@@ -65,7 +63,7 @@ API_Interactor::pushRequests(void) //TODO add setTransferTimeout
 	url = QString::fromStdString(URL::players::balances);
 	QNetworkRequest pb_request;
 	QUrlQuery pb_query;
-	pd_query.addQueryItem("usernamename", QString::fromStdString(__item.username()));
+	pb_query.addQueryItem("username", QString::fromStdString(__item.username()));
 	url.setQuery(pb_query);
 	pb_request.setUrl(url);
 	nm_pbReply = nm_pb ->get(pb_request);
@@ -73,7 +71,7 @@ API_Interactor::pushRequests(void) //TODO add setTransferTimeout
 	//Fetch -- QUEST --
 
 	QUrlQuery pq_query;
-	pd_query.addQueryItem("usernamename", QString::fromStdString(__item.username()));
+	pd_query.addQueryItem("username", QString::fromStdString(__item.username()));
 	url = QString::fromStdString(URL::players::quests);
 	url.setQuery(pq_query);
 	QNetworkRequest pq_request;
@@ -90,15 +88,17 @@ API_Interactor::on_playerDetailsResult(QNetworkReply *r)
 		checkToFinalize();
 		return;
 	}
-	rapidjson::Document doc;
+
+	QString val = r->readAll();
+	QJsonDocument doc = QJsonDocument::fromJson(val.toUtf8());
+
+	assert(doc.isObject());
 
 	//Rating
-	doc.Parse(r->readAll().toStdString().c_str());
-	assert(doc.IsObject());
-	__item.setRating(doc["rating"].GetInt());
+	__item.setRating(doc["rating"].toInt());
 
 	//League
-	__item.setLeague(doc["league"].GetInt());
+	__item.setLeague(doc["league"].toInt());
 
 	__pd = true;
 	checkToFinalize();
@@ -114,14 +114,16 @@ API_Interactor::on_playerQuestsResult(QNetworkReply *r)
 		return;
 	}
 
-	rapidjson::Document doc;
+	QString val = r->readAll();
+	QJsonDocument doc = QJsonDocument::fromJson(val.toUtf8());
+
+	assert(doc.isArray());
 
 	//Quest
-	doc.Parse(r->readAll().toStdString().c_str());
-	assert(doc.IsArray());
 
-	for (auto& itr : doc.GetArray()) {
-		__item.setQuestProgress(itr["completed_items"].GetInt());
+	for (auto itr : doc.array()) { //completed_items
+		QJsonObject d = itr.toObject();
+		__item.setQuestProgress(d["completed_items"].toInt());
 		break;
 	}
 
@@ -138,15 +140,20 @@ API_Interactor::on_playerBalancesResult(QNetworkReply *r)
 		checkToFinalize();
 		return;
 	}
-	rapidjson::Document doc;
+
+	QJsonDocument doc = QJsonDocument::fromJson(r->readAll());
+
+	assert(doc.isArray());
 
 	//DEC count
-	doc.Parse(r->readAll().toStdString().c_str());
-	assert(doc.IsArray());
+	
+	QJsonArray root = doc.array();
 
-	for (auto& itr : doc.GetArray()) {
-		if (!strcmp(itr["token"].GetString(), "DEC")) {
-			__item.setDecCount(itr["balance"].GetDouble());
+	/* std::cout << root.at(0).toObject()["0"].toString().toStdString() << std::endl; */
+	for (int i = 0; i < root.count(); ++i) {
+		QJsonObject sub = root.at(i).toObject();
+		if (sub.value("token").toString() == "DEC") {
+			__item.setDecCount(sub.value("balance").toDouble());
 			break;
 		}
 	}
@@ -167,67 +174,6 @@ API_Interactor::replyError(QNetworkReply *r)
 
 	return true;
 }
-
-/* bool */
-/* API_Interactor::updatePlayerDetails(void) */
-/* { */
-/* 	if (badResnose(__r_playerDetails)) { */
-/* 		return false; */
-/* 	} */
-
-/* 	rapidjson::Document doc; */
-
-/* 	//Rating */
-/* 	doc.Parse(__r_playerDetails.text.c_str()); */
-/* 	assert(doc.IsObject()); */
-/* 	__item.setRating(doc["rating"].GetInt()); */
-
-/* 	//League */
-/* 	__item.setLeague(doc["league"].GetInt()); */
-
-/* 	return tRue; */
-/* } */
-
-/* bool */
-/* API_Interactor::updatePlayerBalances(void) */
-/* { */
-/* 	if (badResnose(__r_playerBalance)) { */
-/* 		return false; */
-/* 	} */
-
-/* 	rapidjson::Document doc; */
-
-/* 	//Rating */
-/* 	doc.Parse(__r_playerDetails.text.c_str()); */
-/* 	assert(doc.IsObject()); */
-/* 	__item.setRating(doc["rating"].GetInt()); */
-
-/* 	//League */
-/* 	__item.setLeague(doc["league"].GetInt()); */
-
-/* 	return true; */
-/* } */
-
-/* bool */
-/* API_Interactor::updatePlayerQuests(void) */
-/* { */
-/* 	if (badResnose(__r_playerQuests)) { */
-/* 		return false; */
-/* 	} */
-
-/* 	rapidjson::Document doc; */
-
-/* 	//Quest */
-/* 	doc.Parse(__r_playerQuests.text.c_str()); */
-/* 	assert(doc.IsArray()); */
-
-/* 	for (auto& itr : doc.GetArray()) { */
-/* 		__item.setQuestProgress(itr["completed_items"].GetInt()); */
-/* 		break; */
-/* 	} */
-
-/* 	return true; */
-/* } */
 
 bool
 API_Interactor::canPerformRequest(void)
