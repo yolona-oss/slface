@@ -8,6 +8,9 @@
 
 using namespace SL;
 
+//1 sec == 1000 msec :o
+std::chrono::milliseconds ItemUpdater::__waitTime = std::chrono::milliseconds(30000);
+
 UpdaterQueue::UpdaterQueue(Stor& stor) :
 	__stor(stor),
 	queue(0)
@@ -34,11 +37,12 @@ void
 UpdaterQueue::createQueue(void)
 {
 	ItemState *is;
-	for (auto item : __stor) {
-        connect(item->api(), &API_Interactor::finishedForItem,
-        		this, &UpdaterQueue::on_interactorFinished);
 
-		is = new ItemState(item);
+	for (std::size_t i = 0; i != queue.size(); ++i) {
+        connect(queue.at(i)->item->api(), &API_Interactor::finishedForItem,
+        		this, &UpdaterQueue::on_interactorFinished);
+/* queue.size() - i - 1 */
+		is = new ItemState(queue.at(i)->item);
 		queue.push_back(is);
 	}
 }
@@ -72,6 +76,7 @@ UpdaterQueue::findItemPos(Item *item)
 void
 UpdaterQueue::on_interactorFinished(Item *item)
 {
+	queue.at(findItemPos(item))->state = ItemState::Wait;
 	std::reverse(queue.begin(), queue.end());
 	/* std::rotate(queue.begin(), queue.begin() + 1, queue.end()); */
 	std::rotate(queue.begin(), queue.end() - findItemPos(item), queue.end());
@@ -111,7 +116,7 @@ UpdaterQueue::isTimeToUpdate(ItemState *iState)
 	using namespace std::chrono;
 	auto now = steady_clock::now();
 
-	if (duration_cast<milliseconds>(now - iState->lastUpdateTime()) >= G_GET_REQ_GAP_TIME ||
+	if (duration_cast<milliseconds>(now - iState->lastUpdateTime()) >= ItemUpdater::waitTime() ||
 			iState->itsNew()) {
 		iState->setLastUpdateTime(steady_clock::now()); //update timer
 		return true;
@@ -135,7 +140,7 @@ UpdaterQueue::getStandby(int count)
 		if (count > 0 && !istate->item->username().empty() &&
 				istate->state == ItemState::Standby)
 		{
-			istate->state = ItemState::Wait;
+			istate->state = ItemState::Execute;
 			sharedStandbyQueue->push_back(istate->item);
 			count--;
 		}
@@ -180,23 +185,8 @@ ItemUpdater::stop(void)
 void
 ItemUpdater::doIteration(void)
 {
-	/* int i = 0; */
-	/* for (auto item : __stor) { */
-	/* 	if (item->api()->isInteractionPossible()) { */
-	/* 		if (i < 10) { */
-	/* 			emit item->_updateItem(); */
-	/* 			i++; */
-	/* 		} else { */
-	/* 			//add to queue */
-	/* 		} */
-	/* 	} */
-	/* } */
-
-	//1 queue get standby items with count pred
-	//2 start updaters in this items(queue after this precess these item with execute state)
-	//3 go to sleep
-	
-	for (auto item : *__queue->getStandby(__maxUpdaters)) {
+	for (auto item : *__queue->getStandby(
+				__maxThreads/API_Interactor::perUpdaterThreads)) {
 		item->_updateItem();
 	}
 }

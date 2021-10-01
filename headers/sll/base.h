@@ -30,8 +30,6 @@ namespace SL
 	typedef struct accountDetails accountDetails_t;
 	typedef struct playerDetails  playerDetails_t;
 
-	const std::chrono::milliseconds G_GET_REQ_GAP_TIME = std::chrono::milliseconds(30000); //1 sec == 1000 msec :o
-
 	/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
 
 	namespace authentication {
@@ -158,6 +156,9 @@ namespace SL
 			void finalize(bool success, bool free = true);
 
 		public:
+			static const std::size_t perUpdaterThreads = 3;
+
+		public:
 			explicit API_Interactor(Item& item, QObject *p = nullptr);
 			virtual ~API_Interactor();
 
@@ -192,17 +193,19 @@ namespace SL
 
 		public:
 			enum State {
-				/* Execute, //api running */
+				Execute, //api running
 				Wait,   //its not time to execute
 				Standby, //waiting for self turn in queue
 			};
+
 			Item *item;
 			int state;
 			bool itsNew() { emit _itsNewTrigger(); return __itsNew; }
 			std::chrono::steady_clock::time_point lastUpdateTime()            { return __lastUpdateTime; }
 			void setLastUpdateTime(std::chrono::steady_clock::time_point lut) { __lastUpdateTime = lut; }
 
-			explicit ItemState(Item *pitem) : item(pitem), state(Standby) { 
+			explicit ItemState(Item *pitem) : item(pitem), state(Standby)
+			{ 
 				connect(this, &ItemState::_itsNewTrigger, this, &ItemState::on_itsNewtriggered);
 			}
 			virtual ~ItemState() {};
@@ -220,9 +223,9 @@ namespace SL
 		Q_OBJECT
 
 		private:
-			Stor& __stor;
+			Stor& __stor; //link
 			std::vector<ItemState*> queue;
-			std::vector<Item*> *sharedStandbyQueue;
+			std::vector<Item*>     *sharedStandbyQueue;
 
 		private:
 			void createQueue(void);
@@ -259,20 +262,20 @@ namespace SL
 			QTimer       *__timer;
 			UpdaterQueue *__queue;
 
-			std::chrono::milliseconds __interval {3000};
+			//default setup in itemupdater.cpp
+			static std::chrono::milliseconds __waitTime;
+			std::chrono::milliseconds        __interval {3000};
 			bool __firstTime {true};
 
-			int __currentlyUpdating {0}; //how many items in this time updating
-			int __maxUpdaters       {10}; //mb const?
-
-			//methods
+			std::size_t __maxThreads {9};
 
 		public:
 			ItemUpdater(Stor& stor, QObject *p = 0);
 			virtual ~ItemUpdater();
 
-			//its dont work TODO. need reset qtimer
 			void setInterval(std::chrono::milliseconds msec) { __interval = msec; }
+			static std::chrono::milliseconds waitTime(void) { return __waitTime; }
+			void setWaitTime(std::chrono::milliseconds msec) { __waitTime = msec; }
 
 		signals:
 			void forseStop(void);
