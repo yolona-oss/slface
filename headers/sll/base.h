@@ -389,10 +389,10 @@ namespace SL
 
 			//default setup in itemupdater.cpp
 			static std::chrono::milliseconds __waitTime;
-			std::chrono::milliseconds        __interval {100};
+			std::chrono::milliseconds        __interval {5000};
 			bool __firstTime {true};
 
-			std::size_t __maxThreads {12};
+			std::size_t __maxThreads {3};
 
 		public:
 			ItemUpdater(Stor& stor, QObject *p = 0);
