@@ -8,6 +8,11 @@
 
 using namespace SL;
 
+ItemState::ItemState(Item *pitem, QObject *p) :
+	item(pitem), state(Standby)
+{ 
+}
+
 //1 sec == 1000 msec :o
 std::chrono::milliseconds ItemUpdater::__waitTime = std::chrono::milliseconds(30000);
 
@@ -39,10 +44,11 @@ UpdaterQueue::createQueue(void)
 	ItemState *is;
 
 	for (std::size_t i = 0; i != queue.size(); ++i) {
-        connect(queue.at(i)->item->api(), &API_Interactor::finishedForItem,
-        		this, &UpdaterQueue::on_interactorFinished);
-/* queue.size() - i - 1 */
-		is = new ItemState(queue.at(i)->item);
+		is = new ItemState(queue.at(i)->item, this);
+
+        connect(is->item->api(), &API_Interactor::finishedForItem,
+        		this, &UpdaterQueue::on_interactorFinished, Qt::DirectConnection);
+
 		queue.push_back(is);
 	}
 }
@@ -76,7 +82,6 @@ UpdaterQueue::findItemPos(Item *item)
 void
 UpdaterQueue::on_interactorFinished(Item *item)
 {
-	std::cout << "iter finished!!!!!!!!!!!!!!!!" << std::endl;
 	queue.at(findItemPos(item))->state = ItemState::Wait;
 	/* std::reverse(queue.begin(), queue.end()); */
 	/* /1* std::rotate(queue.begin(), queue.begin() + 1, queue.end()); *1/ */
@@ -88,7 +93,9 @@ UpdaterQueue::on_interactorFinished(Item *item)
 void
 UpdaterQueue::on_itemAdded(Item *item)
 {
-	ItemState *is = new ItemState(item);
+	ItemState *is = new ItemState(item, this);
+	connect(is->item->api(), &API_Interactor::finishedForItem,
+			this, &UpdaterQueue::on_interactorFinished, Qt::DirectConnection);
 	queue.insert(queue.begin(), is);
 }
 
@@ -119,7 +126,8 @@ UpdaterQueue::isTimeToUpdate(ItemState *iState)
 	auto now = steady_clock::now();
 
 	if (duration_cast<milliseconds>(now - iState->lastUpdateTime()) >= ItemUpdater::waitTime() ||
-			iState->itsNew()) {
+			iState->itsNew) {
+		iState->itsNew = false;
 		iState->setLastUpdateTime(steady_clock::now()); //update timer
 		return true;
 	} else {
@@ -143,11 +151,7 @@ UpdaterQueue::getStandby(int count)
 		}
 	}
 
-	if (executing_c == count) {
-		return sharedStandbyQueue;
-	}
-
-	std::cout << "exec: " << executing_c << std::endl;
+	std::cout << "exec: " << executing_c << " count: " << count << std::endl;
 
 	count -= executing_c;
 
@@ -173,8 +177,10 @@ ItemUpdater::ItemUpdater(Stor& stor, QObject *p) :
 		__queue(new UpdaterQueue(stor)),
 		__timer(new QTimer(this))
 {
-	connect(__timer, &QTimer::timeout, this, &ItemUpdater::doIteration, Qt::DirectConnection); //Qt::BlockingQueuedConnection
-	connect(this, &ItemUpdater::forseStop, this, &ItemUpdater::stop); //mb lymbda?
+	connect(__timer, &QTimer::timeout, this,
+			&ItemUpdater::doIteration); //Qt::BlockingQueuedConnection
+	connect(this, &ItemUpdater::forseStop,
+			this, &ItemUpdater::stop); //mb lymbda?
 }
 
 ItemUpdater::~ItemUpdater()

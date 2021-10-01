@@ -9,8 +9,7 @@
 using namespace SL;
 
 API_Interactor::API_Interactor(Item& item, QObject *p) :
-	QObject(p),
-		__item(item)
+	__item(item)
 {
 	connect(this, &API_Interactor::_needUpdate,
 			this, &API_Interactor::on_needUpdate);
@@ -77,6 +76,27 @@ API_Interactor::pushRequests(void) //TODO add setTransferTimeout
 	QNetworkRequest pq_request;
 	pq_request.setUrl(url);
 	nm_pqReply = nm_pq->get(pq_request);
+
+	/* connect(nm_pbReply, &QIODevice::readyRead, */
+	/* 		this, &API_Interactor::on_playerBalancesResult); */
+	/* /1* connect(nm_pbReply, &QNetworkReply::errorOccurred, *1/ */
+	/* /1* 		this, &API_Interactor::on_playerBalancesResult); *1/ */
+	/* /1* connect(nm_pbReply, &QNetworkReply::sslErrors, *1/ */
+	/* /1* 		this, &API_Interactor::on_playerBalancesResult); *1/ */
+
+	/* connect(nm_pqReply, &QIODevice::readyRead, */
+	/* 		this, &API_Interactor::on_playerQuestsResult); */
+	/* /1* connect(nm_pqReply, &QNetworkReply::errorOccurred, *1/ */
+	/* /1* 		this, &API_Interactor::on_playerQuestsResult); *1/ */
+	/* /1* connect(nm_pqReply, &QNetworkReply::sslErrors, *1/ */
+	/* /1* 		this, &API_Interactor::on_playerQuestsResult); *1/ */
+
+	/* connect(nm_pdReply, &QIODevice::readyRead, */
+	/* 		this, &API_Interactor::on_playerDetailsResult); */
+	/* /1* connect(nm_pdReply, &QNetworkReply::errorOccurred, *1/ */
+	/* /1* 		this, &API_Interactor::on_playerDetailsResult); *1/ */
+	/* /1* connect(nm_pdReply, &QNetworkReply::sslErrors, *1/ */
+	/* /1* 		this, &API_Interactor::on_playerDetailsResult); *1/ */
 }
 
 void
@@ -196,9 +216,12 @@ API_Interactor::finalize(bool success, bool free)
 		delete nm_pd;
 		delete nm_pb;
 		delete nm_pq;
+		/* delete nm_pbReply; */
+		/* delete nm_pdReply; */
+		/* delete nm_pqReply; */
 	}
 
-	emit finishedForItem(&this->__item);
+	emit finishedForItem(&(this->__item));
 	emit finished(success);
 }
 
@@ -212,17 +235,20 @@ API_Interactor::on_needUpdate() //TODO make forse request prop
 		return;
 	}
 
-	nm_pd = new (std::nothrow) QNetworkAccessManager(this);
-	nm_pq = new (std::nothrow) QNetworkAccessManager(this);
-	nm_pb = new (std::nothrow) QNetworkAccessManager(this);
+	nm_pd = new (std::nothrow) QNetworkAccessManager();
+	nm_pq = new (std::nothrow) QNetworkAccessManager();
+	nm_pb = new (std::nothrow) QNetworkAccessManager();
+
+	if (!nm_pd || !nm_pq || !nm_pb) {
+		finalize(false, false);
+	}
 
 	connect(nm_pq, &QNetworkAccessManager::finished,
-			this, &API_Interactor::on_playerQuestsResult, Qt::QueuedConnection);
+			this,  &API_Interactor::on_playerQuestsResult, Qt::DirectConnection);
 	connect(nm_pd, &QNetworkAccessManager::finished,
-			this, &API_Interactor::on_playerDetailsResult, Qt::QueuedConnection);
+			this,  &API_Interactor::on_playerDetailsResult, Qt::DirectConnection);
 	connect(nm_pb, &QNetworkAccessManager::finished,
-			this, &API_Interactor::on_playerBalancesResult, Qt::QueuedConnection);
-
+			this,  &API_Interactor::on_playerBalancesResult, Qt::DirectConnection);
 
 	pushRequests(); //interact with api
 }

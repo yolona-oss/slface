@@ -26,9 +26,11 @@
 
 namespace SL
 {
-	class API_Interactor;
-	class ItemUpdater;
 	class Item;
+	class API_Interactor;
+	class UpdaterQueue;
+	class ItemUpdater;
+	class ItemState;
 	class Stor;
 
 	typedef struct accountDetails accountDetails_t;
@@ -118,184 +120,6 @@ namespace SL
 		int league;
 		int questProgress; //mb make it unsign or use signed for detect unsynced value?
 		double decBalance;
-	};
-
-	/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
-
-	//Object for fetching data from splinterlands API
-	//pb - player Balances
-	//pd - player Details
-	//pq - player Quests
-	class API_Interactor : public QObject
-	{
-		Q_OBJECT
-
-		private:
-			Item &__item; //link with parent
-
-			QNetworkAccessManager *nm_pd;
-			QNetworkAccessManager *nm_pq;
-			QNetworkAccessManager *nm_pb;
-
-			QNetworkReply *nm_pdReply;
-			QNetworkReply *nm_pqReply;
-			QNetworkReply *nm_pbReply;
-
-			bool __pd = false,
-				 __pq = false,
-				 __pb = false;
-
-			bool __pd_completed = false;
-			bool __pq_completed = false;
-			bool __pb_completed = false;
-
-		private:
-			bool replyError(QNetworkReply *);
-			void pushRequests(void);
-			bool updateValues(void);
-
-			void checkToFinalize(void);
-
-			bool canPerformRequest(void);
-			void finalize(bool success, bool free = true);
-
-		public:
-			static const std::size_t perUpdaterThreads = 3;
-
-		public:
-			explicit API_Interactor(Item& item, QObject *p = nullptr);
-			virtual ~API_Interactor();
-
-			bool isInteractionPossible(void);
-
-		signals:
-			void finished(bool success);
-			void finishedForItem(Item *item);
-			void updateReady(void);
-			void _needUpdate(void);
-
-		private slots:
-			void on_playerDetailsResult(QNetworkReply *r);
-			void on_playerQuestsResult(QNetworkReply *r);
-			void on_playerBalancesResult(QNetworkReply *r);
-
-		public slots:
-			void on_needUpdate(void); //fetch data
-	};
-
-	/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
-	//Item update scheduling
-
-	class ItemState : public QObject
-	{
-		Q_OBJECT
-
-		private:
-			bool __itsNew = true;
-			std::chrono::steady_clock::time_point __lastUpdateTime {
-				std::chrono::steady_clock::now() };
-
-		public:
-			enum State {
-				Execute, //api running
-				Wait,   //its not time to execute
-				Standby, //waiting for self turn in queue
-			};
-
-			Item *item;
-			int state;
-			bool itsNew() { emit _itsNewTrigger(); return __itsNew; }
-			std::chrono::steady_clock::time_point lastUpdateTime()            { return __lastUpdateTime; }
-			void setLastUpdateTime(std::chrono::steady_clock::time_point lut) { __lastUpdateTime = lut; }
-
-			explicit ItemState(Item *pitem) : item(pitem), state(Standby)
-			{ 
-				connect(this, &ItemState::_itsNewTrigger, this, &ItemState::on_itsNewtriggered);
-			}
-			virtual ~ItemState() {};
-
-		signals:
-			void _itsNewTrigger();
-
-		private slots:
-			void on_itsNewtriggered() { __itsNew=false; }
-			
-	};
-
-	class UpdaterQueue : public QObject
-	{
-		Q_OBJECT
-
-		private:
-			Stor& __stor; //link
-			std::vector<ItemState*> queue;
-			std::vector<Item*>     *sharedStandbyQueue;
-
-		private:
-			void createQueue(void);
-			void clearQueue(void);
-			long findItemPos(Item *item);
-
-			bool isTimeToUpdate(ItemState *iState);
-
-		public:
-			explicit UpdaterQueue(Stor& stor);
-			virtual ~UpdaterQueue();
-
-		signals:
-
-		public slots:
-			std::vector<Item*> * getStandby(int count);
-			/* void clear(void); */
-
-		private slots:
-			void on_interactorFinished(Item*);
-			void on_itemAdded(Item*);
-			void on_itemRemoved(long id);
-			void on_itemChanged(Item*);
-			void on_reorganized();
-	};
-
-	//Object to serve Stor with updating Item data via API_Interactor by qtimer
-	class ItemUpdater : public QObject
-	{
-		Q_OBJECT
-	
-		private:
-			Stor&        __stor;
-			QTimer       *__timer;
-			UpdaterQueue *__queue;
-
-			//default setup in itemupdater.cpp
-			static std::chrono::milliseconds __waitTime;
-			std::chrono::milliseconds        __interval {3000};
-			bool __firstTime {true};
-
-			std::size_t __maxThreads {9};
-
-		public:
-			ItemUpdater(Stor& stor, QObject *p = 0);
-			virtual ~ItemUpdater();
-
-			void setInterval(std::chrono::milliseconds msec) { __interval = msec; }
-			static std::chrono::milliseconds waitTime(void) { return __waitTime; }
-			void setWaitTime(std::chrono::milliseconds msec) { __waitTime = msec; }
-
-		signals:
-			void forseStop(void);
-			void finished(void);
-
-			void _outOfTurnRequest(Item *);
-			void _forseUpdate(void);
-
-		public slots:
-			void doIteration(void);
-			void stop(void);
-			void start(void);
-
-			//TODO
-			void on_outOfTurnRequest(Item *);
-			void on_forseUpdate(void);
 	};
 
 	/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
@@ -424,6 +248,175 @@ namespace SL
 
 		public slots:
 			void on_childChanged(Item *item);
+	};
+	/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+
+	//Object for fetching data from splinterlands API
+	//pb - player Balances
+	//pd - player Details
+	//pq - player Quests
+	class API_Interactor : public QObject
+	{
+		Q_OBJECT
+
+		private:
+			Item &__item; //link with parent
+
+			QNetworkAccessManager *nm_pd;
+			QNetworkAccessManager *nm_pq;
+			QNetworkAccessManager *nm_pb;
+
+			QNetworkReply *nm_pdReply;
+			QNetworkReply *nm_pqReply;
+			QNetworkReply *nm_pbReply;
+
+			bool __pd = false,
+				 __pq = false,
+				 __pb = false;
+
+			bool __pd_completed = false;
+			bool __pq_completed = false;
+			bool __pb_completed = false;
+
+		private:
+			bool replyError(QNetworkReply *);
+			void pushRequests(void);
+			bool updateValues(void);
+
+			void checkToFinalize(void);
+
+			bool canPerformRequest(void);
+			void finalize(bool success, bool free = true);
+
+		public:
+			static const std::size_t perUpdaterThreads = 3;
+
+		public:
+			explicit API_Interactor(Item& item, QObject *p = nullptr);
+			virtual ~API_Interactor();
+
+			bool isInteractionPossible(void);
+
+		signals:
+			void finished(bool success);
+			void finishedForItem(Item *item);
+			void updateReady(void);
+			void _needUpdate(void);
+
+		private slots:
+			void on_playerDetailsResult(QNetworkReply *r);
+			void on_playerQuestsResult(QNetworkReply *r);
+			void on_playerBalancesResult(QNetworkReply *r);
+
+		public slots:
+			void on_needUpdate(void); //fetch data
+	};
+
+	/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+	//Item update scheduling
+
+	class ItemState : public QObject
+	{
+		Q_OBJECT
+
+		private:
+			std::chrono::steady_clock::time_point __lastUpdateTime {
+				std::chrono::steady_clock::now() };
+
+		public:
+			enum State {
+				Execute, //api running
+				Wait,   //its not time to execute
+				Standby, //waiting for self turn in queue
+			};
+
+			Item *item {nullptr};
+			int state;
+			bool itsNew = true;
+			std::chrono::steady_clock::time_point lastUpdateTime() {
+				return __lastUpdateTime;
+			}
+
+			void setLastUpdateTime(std::chrono::steady_clock::time_point lut) { __lastUpdateTime = lut; }
+
+			explicit ItemState(Item *pitem, QObject *p = 0);
+			virtual ~ItemState() {};
+	};
+
+	class UpdaterQueue : public QObject
+	{
+		Q_OBJECT
+
+		private:
+			Stor& __stor; //link
+			std::vector<ItemState*> queue;
+			std::vector<Item*>     *sharedStandbyQueue;
+
+		private:
+			void createQueue(void);
+			void clearQueue(void);
+			long findItemPos(Item *item);
+
+			bool isTimeToUpdate(ItemState *iState);
+
+		public:
+			explicit UpdaterQueue(Stor& stor);
+			virtual ~UpdaterQueue();
+
+		signals:
+
+		public slots:
+			std::vector<Item*> * getStandby(int count);
+			/* void clear(void); */
+
+		private slots:
+			void on_interactorFinished(Item*);
+			void on_itemAdded(Item*);
+			void on_itemRemoved(long id);
+			void on_itemChanged(Item*);
+			void on_reorganized();
+	};
+
+	//Object to serve Stor with updating Item data via API_Interactor by qtimer
+	class ItemUpdater : public QObject
+	{
+		Q_OBJECT
+	
+		private:
+			Stor&        __stor;
+			QTimer       *__timer;
+			UpdaterQueue *__queue;
+
+			//default setup in itemupdater.cpp
+			static std::chrono::milliseconds __waitTime;
+			std::chrono::milliseconds        __interval {100};
+			bool __firstTime {true};
+
+			std::size_t __maxThreads {12};
+
+		public:
+			ItemUpdater(Stor& stor, QObject *p = 0);
+			virtual ~ItemUpdater();
+
+			void setInterval(std::chrono::milliseconds msec) { __interval = msec; }
+			static std::chrono::milliseconds waitTime(void) { return __waitTime; }
+			void setWaitTime(std::chrono::milliseconds msec) { __waitTime = msec; }
+
+		signals:
+			void forseStop(void);
+			void finished(void);
+
+			void _outOfTurnRequest(Item *);
+			void _forseUpdate(void);
+
+		public slots:
+			void doIteration(void);
+			void stop(void);
+			void start(void);
+
+			//TODO
+			void on_outOfTurnRequest(Item *);
+			void on_forseUpdate(void);
 	};
 };
 

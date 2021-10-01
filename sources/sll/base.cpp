@@ -1,3 +1,4 @@
+#include <qnamespace.h>
 #include <sll/base.h>
 
 #include <iostream>
@@ -42,7 +43,7 @@ Item::Item(QObject *p) :
 	QObject(p),
 		__id(-1)
 {
-	__api_interactor = new API_Interactor(*this);
+	__api_interactor = new API_Interactor(*this, this);
 
 	connect(__api_interactor, &API_Interactor::finished,
 			&__api_interactorThread, &QThread::terminate, Qt::DirectConnection);
