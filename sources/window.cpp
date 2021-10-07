@@ -188,10 +188,10 @@ window::setValuesToDock(Item *item)
 	ui->progressBar_questProgress->setValue(
 			item->questProgress()); //TODO add activator
 
-	ui->label_botStatus->setText(
-			QString::fromStdString(item->statusStr()));
-	ui->label_botPath->setText(
-			QString::fromStdString(item->path()));
+	/* ui->label_botStatus->setText( */
+	/* 		QString::fromStdString(item->statusStr())); */
+	/* ui->label_botPath->setText( */
+	/* 		QString::fromStdString(item->path())); */
 }
 
 void
