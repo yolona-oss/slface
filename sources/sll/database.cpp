@@ -71,8 +71,9 @@ DataBase::createTable()
 				" TABLE_EMAIL        " email TEXT, \
 				" TABLE_PASSWORD     " password TEXT, \
 				" TABLE_BOT_PATH     " bot_path TEXT, \
-				" TABLE_BOT_PRESET   " bot_path TEXT, \
-				UNIQUE(" TABLE_UID "));"))
+				" TABLE_BOT_PRESET   " bot_path TEXT)"))
+				/* "); */
+				/* UNIQUE(" TABLE_UID "));")) */
 	{
 		//err
 		std::cerr << "cant create table" << std::endl;
